@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --coffee: #2b1b14;
+  --himwhite: #f5f3ee;
+  --alpine: #1f4d3a;
+  --gold: #c8a951;
+  --bg: #f5f3ee;
+  --ink: #2b1b14;
+  --card: #ffffff;
+  --line: rgba(43, 27, 20, 0.13);
+}
+
+.dark {
+  --bg: #161210;
+  --ink: #f5f3ee;
+  --card: #221a15;
+  --line: rgba(245, 243, 238, 0.13);
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply font-body antialiased;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  h1, h2, h3, h4 {
+    @apply font-display font-semibold;
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply font-button inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5
+      text-sm font-medium tracking-wide transition-transform duration-200
+      hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-green { @apply btn bg-alpine text-himwhite shadow-soft hover:shadow-lift; }
+  .btn-gold  { @apply btn bg-gold text-coffee shadow-soft hover:shadow-lift; }
+  .btn-line  { @apply btn border-[1.5px] border-current bg-transparent; }
+  .card {
+    @apply rounded-xl2 border bg-[var(--card)] shadow-soft transition-shadow duration-300 hover:shadow-lift;
+    border-color: var(--line);
+  }
+  .eyebrow {
+    @apply font-button text-xs font-medium uppercase tracking-[0.32em] text-[#846C2A] dark:text-gold;
+  }
+  .bg-coffee .eyebrow { color: #C8A951; }
+  /* Menu scanning tags — max one behavioral + one dietary per item */
+  .pill { @apply font-button rounded-full px-2.5 py-1 text-[11px] font-medium; }
+  .pill-star { @apply pill bg-gold/20 text-[#8a6d1f] dark:text-gold; }
+  .pill-fire { @apply pill bg-[#b05436]/15 text-[#b05436]; }
+  .pill-leaf { @apply pill bg-alpine/15 text-alpine dark:text-[#7fbf9e]; }
+  .pill-snow { @apply pill bg-[#3a6b8f]/15 text-[#3a6b8f] dark:text-[#8fc3e8]; }
+  .pill-bolt { @apply pill bg-coffee/10 text-[var(--ink)] dark:bg-himwhite/15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Ops design system (Admin + POS only) ──────────────────
+   Neutral high-contrast palette per ops spec; scoped so the
+   consumer brand tokens are never affected. */
+.ops {
+  --bg: #1e232a;
+  --ink: #fdfbf7;
+  --card: #262c34;
+  --line: rgba(253, 251, 247, 0.12);
+  --ops-accent: #e63946;
+  --ops-success: #3fa34d;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+}
+.ops .card { background: var(--card); }
+
+/* ═══ V6 Flagship Experience — motion foundation (GPU-only: transform/opacity/filter) ═══ */
+@keyframes fx-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes fx-drift { 0% { transform: translate3d(0,0,0) rotate(0deg); } 50% { transform: translate3d(8px,-14px,0) rotate(6deg); } 100% { transform: translate3d(0,0,0) rotate(0deg); } }
+@keyframes fx-steam { 0% { opacity: 0; transform: translateY(0) scaleX(1); } 25% { opacity: .5; } 100% { opacity: 0; transform: translateY(-64px) scaleX(1.6); } }
+@keyframes fx-glow { 0%,100% { box-shadow: 0 8px 28px rgba(31,77,58,.28); } 50% { box-shadow: 0 8px 36px rgba(200,169,81,.4); } }
+@keyframes fx-kenburns { from { transform: scale(1) translateY(0); } to { transform: scale(1.06) translateY(-1.5%); } }
+@keyframes fx-condense { 0%,100% { opacity: .5; } 50% { opacity: .9; } }
+
+.fx-reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s ease; will-change: opacity, transform; }
+.fx-reveal.fx-in { opacity: 1; transform: none; }
+.fx-lift { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease; }
+.fx-lift:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -18px rgba(43,27,20,.35); }
+.fx-glow { animation: fx-glow 3.6s ease-in-out infinite; }
+.fx-kenburns { animation: fx-kenburns 18s ease-out both; transform-origin: 60% 30%; }
+.btn { transition: transform .18s ease, box-shadow .25s ease, background-color .2s ease; }
+.btn:active { transform: scale(.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-reveal { opacity: 1; transform: none; transition: none; }
+  .fx-lift, .fx-lift:hover { transform: none; }
+  .fx-glow, .fx-kenburns { animation: none; }
+  [data-fx] * { animation: none !important; }
+}
+
+/* ═══ Luxury layer (v7.3) — visual elevation only, zero structural change.
+   All motion: transform/opacity/box-shadow only (GPU), dead under reduced motion. ═══ */
+
+/* Glass upgrade for every existing .card — layered border + blur + gold-warm hover */
+.card {
+  position: relative;
+  backdrop-filter: blur(10px);
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,0) 40%),
+    var(--card);
+}
+.card::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(200,169,81,.06);
+}
+.card:hover { box-shadow: 0 24px 52px -20px rgba(43,27,20,.4), 0 0 0 1px rgba(200,169,81,.22); }
+
+/* Pointer-tracking tilt (applied via TiltCard) — restrained: max ~6° */
+.fx-tilt {
+  transform-style: preserve-3d;
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), box-shadow .5s ease;
+  will-change: transform;
+}
+.fx-tilt.tilting { transition: transform .08s linear; }
+.fx-tilt:hover { box-shadow: 0 30px 60px -22px rgba(43,27,20,.45); }
+.fx-tilt .tilt-sheen {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(420px circle at var(--mx,50%) var(--my,50%), rgba(200,169,81,.13), transparent 65%);
+  transition: opacity .4s ease;
+}
+.fx-tilt:hover .tilt-sheen { opacity: 1; }
+
+/* Nav link underline — gold ink draws in from left */
+.nav-link { position: relative; }
+.nav-link::after {
+  content: ""; position: absolute; left: 0; bottom: -4px; height: 1.5px; width: 100%;
+  background: currentColor; opacity: .8;
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.nav-link:hover::after, .nav-link:focus-visible::after { transform: scaleX(1); }
+
+/* Hero fog — two soft banks drifting at different speeds */
+@keyframes fogDrift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
+.fx-fog { position: absolute; inset: auto 0 0 0; height: 45%; pointer-events: none;
+  background: radial-gradient(60% 90% at 30% 100%, rgba(243,237,226,.14), transparent 70%);
+  filter: blur(24px); animation: fogDrift 26s ease-in-out infinite alternate; }
+.fx-fog2 { position: absolute; inset: auto 0 8% 0; height: 30%; pointer-events: none;
+  background: radial-gradient(50% 80% at 70% 100%, rgba(243,237,226,.09), transparent 70%);
+  filter: blur(30px); animation: fogDrift 34s ease-in-out infinite alternate-reverse; }
+
+/* Stagger — children of .fx-stagger reveal in sequence (pairs with .fx-reveal) */
+.fx-stagger > *:nth-child(1) { transition-delay: 0ms; }
+.fx-stagger > *:nth-child(2) { transition-delay: 90ms; }
+.fx-stagger > *:nth-child(3) { transition-delay: 180ms; }
+.fx-stagger > *:nth-child(4) { transition-delay: 270ms; }
+
+/* Buttons — gentle scale with luxury easing (existing transition extended) */
+.btn:hover { transform: translateY(-1px) scale(1.015); }
+.btn:active { transform: translateY(0) scale(.99); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-fog, .fx-fog2 { animation: none; }
+  .fx-tilt, .fx-tilt.tilting { transition: none; transform: none !important; }
+  .nav-link::after { transition: none; }
+  .btn:hover, .btn:active { transform: none; }
+}

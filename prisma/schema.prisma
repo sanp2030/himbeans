@@ -1,0 +1,506 @@
+// HimBean — Production database schema
+// PostgreSQL + Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Auth & Users ───────────────────────────
+
+enum Role {
+  CUSTOMER
+  STAFF
+  MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String? // null for OAuth-only accounts
+  image         String?
+  phone         String?
+  birthday      DateTime? // birthday rewards
+  role          Role      @default(CUSTOMER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      OAuthAccount[]
+  sessions      Session[]
+  addresses     Address[]
+  orders        Order[]
+  reservations  Reservation[]
+  reviews       Review[]
+  rewardAccount RewardAccount?
+  wishlist      WishlistItem[]
+  notifications Notification[]
+  giftCardsSent GiftCard[]     @relation("GiftCardPurchaser")
+  posts         BlogPost[]
+  auditLogs     AuditLog[]
+  paymentCards  PaymentMethod[]
+  subscriptions Subscription[]
+
+  @@index([email])
+}
+
+model OAuthAccount {
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String // google | apple | facebook
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  label     String // Home, Work…
+  line1     String
+  line2     String?
+  city      String
+  region    String?
+  postcode  String?
+  country   String  @default("NP")
+  isDefault Boolean @default(false)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+}
+
+model PaymentMethod {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String // stripe | paypal
+  brand     String? // visa, mastercard…
+  last4     String?
+  expMonth  Int?
+  expYear   Int?
+  token     String // gateway token — never raw PANs
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Catalog ───────────────────────────
+
+model Category {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String // Coffee, Espresso, Cold Brew, Tea, Smoothies, Bakery, Desserts, Breakfast, Lunch, Seasonal
+  ordering Int       @default(0)
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  price       Decimal  @db.Decimal(10, 2)
+  calories    Int?
+  image       String?
+  ingredients String[] // display list
+  allergens   String[] // e.g. dairy, gluten, nuts
+  dietTags    String[] // vegan, vegetarian, gluten-free, dairy-free
+  badge       String?  // BEST_SELLER | POPULAR | SEASONAL | STRONG — max one per item
+  nudge       String?  // decision-psychology microcopy, e.g. "Most ordered" — max 3 per menu
+  // ── Coffee education (origin coffees only) ──
+  origin      String? // e.g. Nepal
+  region      String? // e.g. Nuwakot
+  altitudeM   Int?    // e.g. 1650
+  process     String? // Washed | Natural | Honey
+  variety     String? // Bourbon, Typica…
+  roastLevel  String? // Light | Light-Medium | Medium
+  flavorNotes String[] // e.g. Orange Blossom, Caramel, Cacao
+  pairsWith   String? // conversion: suggested pastry/drink pairing
+  isFeatured  Boolean  @default(false)
+  isSeasonal  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category      Category        @relation(fields: [categoryId], references: [id])
+  options       ProductOption[] // customizations: size, milk, syrup…
+  addOns        AddOn[]
+  reviews       Review[]
+  orderItems    OrderItem[]
+  inventory     InventoryItem?
+  wishlistItems WishlistItem[]
+
+  @@index([categoryId, isActive])
+}
+
+model ProductOption {
+  id        String   @id @default(cuid())
+  productId String
+  name      String // "Size", "Milk"
+  values    Json // [{label:"Oat milk", priceDelta:0.60}]
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model AddOn {
+  id         String  @id @default(cuid())
+  productId  String
+  name       String // "Extra shot"
+  priceDelta Decimal @db.Decimal(10, 2)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  sku       String   @unique
+  stock     Int      @default(0)
+  lowAlert  Int      @default(10)
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Orders & Payments ───────────────────────────
+
+enum OrderStatus {
+  PENDING // created; payment pending (counter or online)
+  PAID
+  ACCEPTED // staff acknowledged (optional gate — POS may skip)
+  PREPARING
+  QUALITY_CHECK // optional gate before READY
+  READY
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfilmentType {
+  PICKUP
+  DELIVERY
+  DINE_IN
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  number         Int            @unique @default(autoincrement())
+  userId         String?
+  guestEmail     String?
+  guestName      String?
+  guestPhone     String?
+  locationId     String
+  addressId      String?
+  fulfilment     FulfilmentType @default(PICKUP)
+  status         OrderStatus    @default(PENDING)
+  subtotal       Decimal        @db.Decimal(10, 2)
+  discount       Decimal        @default(0) @db.Decimal(10, 2)
+  tax            Decimal        @default(0) @db.Decimal(10, 2)
+  deliveryFee    Decimal        @default(0) @db.Decimal(10, 2)
+  total          Decimal        @db.Decimal(10, 2)
+  couponId       String?
+  giftCardId     String?
+  giftCardApplied Decimal       @default(0) @db.Decimal(10, 2)
+  etaMinutes     Int? // estimated preparation time
+  pickupCode     String?        @unique // QR pickup verification, e.g. HB-4F7K2M
+  scheduledFor   DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user     User?       @relation(fields: [userId], references: [id])
+  location Location    @relation(fields: [locationId], references: [id])
+  address  Address?    @relation(fields: [addressId], references: [id])
+  coupon   Coupon?     @relation(fields: [couponId], references: [id])
+  giftCard GiftCard?  @relation(fields: [giftCardId], references: [id])
+  items    OrderItem[]
+  payment  Payment?
+  events   OrderEvent[] // per-state timestamps → prep time, bottleneck, rush-hour analytics
+
+  @@index([userId, status])
+  @@index([locationId, createdAt])
+}
+
+model OrderEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  actorId   String? // staff user who triggered it; null for system/webhook
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  productId     String
+  quantity      Int     @default(1)
+  unitPrice     Decimal @db.Decimal(10, 2)
+  customization Json? // selected options & add-ons snapshot
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+}
+
+enum PaymentStatus {
+  REQUIRES_ACTION
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orderId     String        @unique
+  provider    String // stripe | paypal | apple_pay | google_pay | gift_card
+  providerRef String? // PaymentIntent id, etc.
+  amount      Decimal       @db.Decimal(10, 2)
+  currency    String        @default("USD")
+  status      PaymentStatus
+  createdAt   DateTime      @default(now())
+  order       Order         @relation(fields: [orderId], references: [id])
+  transaction Transaction?
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  paymentId String   @unique
+  type      String // charge | refund | payout
+  amount    Decimal  @db.Decimal(10, 2)
+  raw       Json? // gateway payload for reconciliation
+  createdAt DateTime @default(now())
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+}
+
+// ─────────────────────────── Reservations & Locations ───────────────────────────
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Reservation {
+  id         String            @id @default(cuid())
+  userId     String?
+  locationId String
+  name       String
+  email      String
+  phone      String?
+  date       DateTime
+  guests     Int
+  request    String? // special requests
+  status     ReservationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  user       User?             @relation(fields: [userId], references: [id])
+  location   Location          @relation(fields: [locationId], references: [id])
+
+  @@index([locationId, date])
+}
+
+model Location {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  name         String
+  address      String
+  city         String
+  lat          Float
+  lng          Float
+  phone        String?
+  hours        Json // {mon:{open:"07:00",close:"21:00"}…}
+  parking      Boolean       @default(false)
+  facilities   String[] // wifi, outdoor seating, power outlets…
+  isActive     Boolean       @default(true)
+  orders       Order[]
+  reservations Reservation[]
+  employees    Employee[]
+}
+
+model Employee {
+  id         String    @id @default(cuid())
+  locationId String
+  name       String
+  email      String    @unique
+  title      String // Barista, Store Manager…
+  hiredAt    DateTime  @default(now())
+  leftAt     DateTime?
+  location   Location  @relation(fields: [locationId], references: [id])
+}
+
+// ─────────────────────────── Promotions, Rewards, Gift Cards ───────────────────────────
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  type      DiscountType
+  value     Decimal      @db.Decimal(10, 2)
+  minSpend  Decimal?     @db.Decimal(10, 2)
+  maxUses   Int?
+  usedCount Int          @default(0)
+  startsAt  DateTime?
+  expiresAt DateTime?
+  isActive  Boolean      @default(true)
+  orders    Order[]
+}
+
+model GiftCard {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  balance     Decimal  @db.Decimal(10, 2)
+  initial     Decimal  @db.Decimal(10, 2)
+  purchaserId String?
+  toEmail     String?
+  message     String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  purchaser   User?    @relation("GiftCardPurchaser", fields: [purchaserId], references: [id])
+  orders      Order[]
+}
+
+model RewardAccount {
+  id        String         @id @default(cuid())
+  userId    String         @unique
+  points    Int            @default(0)
+  tier      String         @default("Base Camp") // Altitude Perks: Base Camp → Langtang → Annapurna → Everest
+  // `points` are displayed as "Vertical Meters" in all UIs
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledger    RewardLedger[]
+}
+
+model RewardLedger {
+  id        String        @id @default(cuid())
+  accountId String
+  delta     Int // +earned / -redeemed
+  reason    String // order, birthday, referral…
+  createdAt DateTime      @default(now())
+  account   RewardAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id             String    @id @default(cuid())
+  userId         String
+  plan           String    @default("elevation-box")
+  roastPref      String    @default("light") // light | medium | espresso
+  grindPref      String    @default("whole-bean") // whole-bean | filter | espresso
+  status         String    @default("ACTIVE") // ACTIVE | PAUSED | CANCELLED
+  pausedUntil    DateTime?
+  pricePerMonth  Decimal   @default(15) @db.Decimal(10, 2)
+  nextShipmentAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+// ─────────────────────────── Content, Reviews, Comms ───────────────────────────
+
+model Review {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  rating     Int // 1–5
+  title      String?
+  body       String?
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String?
+  body        String // markdown / portable text ref
+  coverImage  String?
+  tags        String[]
+  authorId    String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  author      User      @relation(fields: [authorId], references: [id])
+
+  @@index([publishedAt])
+}
+
+model NewsletterSubscriber {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  confirmedAt  DateTime?
+  unsubscribed Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+// ─────────────────────────── Ops ───────────────────────────
+
+model Setting {
+  key   String @id
+  value Json
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String // product.update, order.refund…
+  entity    String
+  entityId  String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
