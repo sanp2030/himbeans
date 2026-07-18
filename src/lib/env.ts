@@ -1,6 +1,14 @@
 /**
- * Environment validation — fails fast at boot with a readable error
- * instead of a cryptic runtime crash mid-request.
+ * Environment validation — fails fast on real server boot / first request
+ * with a readable error instead of a cryptic runtime crash mid-request.
+ *
+ * Deliberately does NOT throw during `next build`'s static page-data-collection
+ * phase (NEXT_PHASE === "phase-production-build"). That phase touches every
+ * route for static analysis — including ones that never read the database,
+ * like /privacy or Next's own /_not-found — so a build-time throw here would
+ * block the entire deployment over env vars that specific page doesn't need.
+ * Real misconfiguration is still caught immediately once the server actually
+ * starts serving traffic.
  */
 import { z } from "zod";
 
@@ -13,9 +21,18 @@ const schema = z.object({
 });
 
 const parsed = schema.safeParse(process.env);
-if (!parsed.success && process.env.NODE_ENV === "production") {
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+if (!parsed.success && process.env.NODE_ENV === "production" && !isBuildPhase) {
   console.error("❌ Invalid environment:", parsed.error.flatten().fieldErrors);
   throw new Error("Environment validation failed — see log above.");
 }
+if (!parsed.success && isBuildPhase) {
+  console.warn(
+    "⚠️  Environment incomplete during build (expected if DATABASE_URL/AUTH_SECRET aren't set yet):",
+    parsed.error.flatten().fieldErrors
+  );
+}
 
 export const env = parsed.success ? parsed.data : (process.env as unknown as z.infer<typeof schema>);
+

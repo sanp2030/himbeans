@@ -1,3 +1,41 @@
+# v7.5 — Fixed: Real Vercel Build Failure (env validation + Prisma constructor)
+
+Diagnosed from the actual Vercel build log, not guessed. Two stacked bugs, both only
+reproducible with DATABASE_URL/AUTH_SECRET *completely absent* — every prior build I'd
+verified this whole project always had fake-but-present values for both, which is a real
+gap in my own testing now closed.
+
+**Bug 1 — `src/lib/env.ts` hard-crashed the entire build**, not just DB-dependent routes.
+It's imported via a bare side-effect import in the root layout (`import "@/lib/env";`),
+so it's pulled into every route including fully static, database-free pages like
+`/privacy` and Next's own `/_not-found`. Fixed: the validation now only throws at real
+server runtime; during `next build`'s static page-data-collection phase
+(`NEXT_PHASE === "phase-production-build"`) it warns instead of crashing the deployment.
+
+**Bug 2 — `src/lib/db.ts` (my own change from an earlier session) made it worse.**
+Explicitly passing `datasources: { db: { url: process.env.DATABASE_URL } } }` to
+PrismaClient's constructor, when DATABASE_URL is `undefined`, throws
+`PrismaClientConstructorValidationError` immediately at *module import time* — before any
+page has attempted a query. Fixed: the override is now only applied when DATABASE_URL is
+actually present; otherwise Prisma falls back to its own lenient `env("DATABASE_URL")`
+schema resolution, deferring failure to actual query time — matching the try/catch
+pattern already used everywhere else in this app.
+
+**Verified against the exact failure condition**, not just typical local testing:
+```
+env -u DATABASE_URL -u AUTH_SECRET npx next build
+```
+Before the fix: crashes on `/api/admin/eod` during page-data-collection (reproduced the
+Vercel log exactly). After: exit code 0, full 30+ route table. Then re-verified the normal
+path (real env vars present) still builds clean — typecheck 0, lint 0, 33/33 tests.
+
+**What you still need to do**, unrelated to this code fix: add `DATABASE_URL` and
+`AUTH_SECRET` in Vercel's Project → Settings → Environment Variables before your next
+deploy. The app genuinely needs a real database — this fix means a missing env var no
+longer takes down unrelated static pages, not that the app can run without one.
+
+---
+
 # v7.4 — Deployment Audit: Real Errors Found and Fixed
 
 Full audit against "does this actually deploy cleanly" rather than a redesign — per the
