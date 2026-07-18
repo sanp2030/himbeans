@@ -20,6 +20,10 @@ export default async function MyOrdersPage() {
           Order history, reorders, and Altitude Perks live on your account. Guest orders stay
           trackable via the link in your confirmation SMS/email.
         </p>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+            /api/auth/signin is an API route, not a page: the Auth.js flow
+            requires a full-page navigation, which <Link>'s client-side
+            routing would break. */}
         <a href="/api/auth/signin?callbackUrl=/account/orders" className="btn-green mt-8">Sign in</a>
       </div>
     );

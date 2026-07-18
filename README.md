@@ -99,6 +99,13 @@ Dark mode is class-based; `prefers-reduced-motion` disables all animation site-w
   order-confirmation emails, and SMS updates all silently no-op (not error) without their
   respective API keys in `.env` — counter payment and gift-card checkout work regardless.
 
+### Decision log: Prisma `package.json#prisma` deprecation warning
+The build logs a warning that `package.json#prisma` (which wires `npm run db:seed`) is
+deprecated and will be removed in Prisma 7. **Deliberately deferred**: this project pins
+Prisma 6.x, where the config works fully; migrating to `prisma.config.ts` now buys nothing
+and risks breaking seeding on the pinned version. Migrate as part of the Prisma 7 upgrade,
+not before. The warning is cosmetic today.
+
 ## Deployment — Vercel (primary target)
 
 1. Push to GitHub; import the repo in Vercel. **Do not override the build command** —

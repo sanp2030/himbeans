@@ -8,9 +8,24 @@ import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Apple from "next-auth/providers/apple";
 
+// OAuth providers are gated behind their env keys — the same pattern as
+// Stripe/Resend/Twilio everywhere else in this app. Without gating, the
+// default sign-in page renders a Google/Apple button that errors on click
+// when the keys were never configured.
+const oauthProviders = [
+  ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET ? [Google] : []),
+  ...(process.env.AUTH_APPLE_ID && process.env.AUTH_APPLE_SECRET ? [Apple] : []),
+];
+
 export const authConfig = {
   session: { strategy: "jwt" },
-  providers: [Google, Apple],
+  // Vercel serves production and preview deployments from changing hostnames
+  // (himbeans.vercel.app, himbeans-git-main-*.vercel.app). trustHost tells
+  // Auth.js to accept the incoming Host header instead of rejecting requests
+  // from hosts it doesn't recognize. Safe on Vercel, where the platform
+  // controls the Host header.
+  trustHost: true,
+  providers: oauthProviders,
   callbacks: {
     jwt({ token, user }) {
       if (user && "role" in user) token.role = user.role;

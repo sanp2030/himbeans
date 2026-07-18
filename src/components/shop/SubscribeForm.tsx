@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 
 const ROASTS = [
   { v: "light", label: "Light", note: "Florals and fruit forward" },
@@ -75,8 +76,11 @@ export function SubscribeForm() {
       </button>
       {state === "auth" && (
         <p className="mt-4 text-center text-sm opacity-70" role="alert">
-          You&apos;ll need an account first — <a href="/api/auth/signin?callbackUrl=/subscribe" className="underline">sign in</a> and
-          you&apos;ll land right back here.
+          You&apos;ll need an account first —{" "}
+          <button onClick={() => signIn(undefined, { callbackUrl: "/subscribe" })} className="underline">
+            sign in
+          </button>{" "}
+          and you&apos;ll land right back here.
         </p>
       )}
       {state === "error" && (

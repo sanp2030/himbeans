@@ -1,3 +1,45 @@
+# v7.7 — Fixed: Sign-In Was Never Mounted (the /api/auth 404)
+
+**The most consequential missing file of the project**, exposed by the user's screenshot of
+/api/auth/signin returning 404 on the live site: `src/lib/auth.ts` correctly built the
+Auth.js v5 handlers, the middleware correctly redirected protected routes to
+/api/auth/signin — but `src/app/api/auth/[...nextauth]/route.ts`, the file that mounts
+those handlers, **never existed**. Sign-in, sign-out, session checks, and every OAuth
+callback have been 404 on every deployment ever made. My Orders, /admin, /pos, and
+/subscribe's auth path all funneled into that 404. No prior build's route table ever
+listed /api/auth — and no verification pass caught its absence.
+
+Fixes in this release:
+- **Created the catch-all auth route** (`export const { GET, POST } = handlers`) —
+  confirmed in the build route table for the first time: `ƒ /api/auth/[...nextauth]`.
+- **`trustHost: true`** in auth.config.ts — Vercel serves production and preview
+  deployments from changing hostnames (himbeans-git-main-*.vercel.app); without it,
+  Auth.js can reject those Hosts. Safe on Vercel, which controls the Host header.
+- **OAuth providers now env-gated** (Google/Apple only appear on the sign-in page when
+  their keys exist), matching the Stripe/Resend gating pattern — previously the default
+  page would render provider buttons that error on click.
+- **Two .env.example name-mismatch bugs**, found by diffing every `process.env` reference
+  in code against the documented vars: code reads `EMAIL_FROM` but the example documented
+  `RESEND_FROM`; code reads `PUBLIC_CORS_ORIGINS` but the example documented
+  `NEXT_PUBLIC_CORS_ORIGINS`. Anyone configuring from the example set variables that were
+  silently never read. Corrected, and the four `AUTH_GOOGLE_*/AUTH_APPLE_*` vars documented.
+- **Prisma `package.json#prisma` deprecation: deliberately deferred**, documented in
+  README — Prisma is pinned to 6.x where it works fully; migrate with the Prisma 7
+  upgrade, not before. The warning is cosmetic today.
+- **Lint fallout handled properly**: the new route made Next's `no-html-link-for-pages`
+  rule fire on two `<a href="/api/auth/signin">` anchors. Client component switched to the
+  proper `signIn()` API from next-auth/react; the server page keeps a real anchor (an
+  API-route auth flow requires full-page navigation) with a documented one-line rule
+  exception explaining why.
+
+Gate: typecheck 0 · lint 0 · 33/33 tests · build exit 0 with env vars absent ·
+`/api/auth/[...nextauth]` present in the route table.
+
+**Vercel note:** after redeploying, sign-in works with email+password (seed admin) out of
+the box. Google/Apple buttons appear only after adding their keys in Vercel env vars.
+
+---
+
 # v7.6 — Fixed: Five Dead Nav/Footer Links (the live-site 404s)
 
 **Site is live at himbeans.vercel.app** — and the user's screenshot of /shop returning 404
