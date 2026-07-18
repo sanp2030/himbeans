@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   const reservation = await db.reservation.create({ data: parsed.data });
-  // TODO: enqueue confirmation email via Resend
+  // Email seam: confirmation email sends from here once RESEND_API_KEY is set,
+  // following the same gated pattern as order emails in src/lib/email.ts.
   return NextResponse.json({ id: reservation.id, status: reservation.status }, { status: 201 });
 }

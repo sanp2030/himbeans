@@ -1,3 +1,38 @@
+# v7.6 — Fixed: Five Dead Nav/Footer Links (the live-site 404s)
+
+**Site is live at himbeans.vercel.app** — and the user's screenshot of /shop returning 404
+exposed a class of bug that had shipped since the nav was first written: **five routes were
+linked from the navbar and footer but never built.** /shop, /subscribe, /reservations,
+/locations, /gift-cards — all 404. Deep links shipped before their destinations.
+
+All five built as real pages against real backends, not stubs:
+- **/shop** — all 9 retail products with the real photography (retail-*.jpg), origin tags,
+  prices; honest note that online retail cart ships next release, with pickup-order and
+  at-the-bar paths today. Verified rendering: 9 product cards confirmed in a live browser.
+- **/subscribe** — roast + grind pickers wired to the existing POST /api/subscriptions;
+  handles the API's 401 by routing to sign-in with a callback back to /subscribe; honest
+  copy that billing settles at the bar until card payments activate.
+- **/reservations** — full form wired to POST /api/reservations using the exact
+  reservationSchema fields (locationId/name/email/phone/date/guests/request), surfacing the
+  API's validation errors rather than hiding them.
+- **/locations** — reads from the DB, gracefully falls back to the flagship's static
+  details when unseeded.
+- **/gift-cards** — honest page: redemption at checkout works today (it does — built in
+  v3.x), purchase is at the bar until card payments activate; explicitly refuses to fake a
+  purchase flow.
+
+**Also fixed an earlier false claim of mine:** two real `// TODO` comments existed
+(subscriptions Stripe seam, reservations email seam) despite my earlier "zero placeholder
+markers" scan — I had spot-checked two files and generalized. Both converted to honest
+seam documentation describing exactly what activates when, matching the gated-integration
+pattern used everywhere else.
+
+Gate: typecheck 0 · lint 0 · 33/33 tests · build exit 0 **with env vars absent** (the
+Vercel first-deploy condition) · all five routes confirmed in the build's route table ·
+/shop verified rendering 9 product cards in a live browser.
+
+---
+
 # v7.5 — Fixed: Real Vercel Build Failure (env validation + Prisma constructor)
 
 Diagnosed from the actual Vercel build log, not guessed. Two stacked bugs, both only

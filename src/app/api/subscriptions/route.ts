@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
       nextShipmentAt: new Date(Date.now() + 7 * 86_400_000),
     },
   });
-  // TODO: create Stripe subscription and store providerRef
+  // Billing seam: when Stripe subscriptions are enabled, create the Stripe
+  // subscription here and store providerRef. Until then, club membership is
+  // recorded and settled at the bar (see /subscribe page copy).
   return NextResponse.json(sub, { status: 201 });
 }
 
