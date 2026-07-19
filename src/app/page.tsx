@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/db";
 import { NewsletterForm } from "@/components/site/NewsletterForm";
-import { SocialProof } from "@/components/site/SocialProof";
 import { Reveal } from "@/components/fx/Reveal";
 import { TiltCard } from "@/components/fx/TiltCard";
 import { AmbientBeans } from "@/components/fx/Ambient";
@@ -179,9 +178,6 @@ export default async function HomePage() {
           ))}
         </dl>
       </section>
-
-      {/* ── Social proof: press + reviews ────────────────── */}
-      <SocialProof />
 
       {/* ── Newsletter ───────────────────────────────────── */}
       <section className="bg-coffee py-24 text-himwhite">

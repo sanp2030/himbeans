@@ -1,3 +1,21 @@
+# v7.8 — Fabricated Social Proof Removed From the Codebase
+
+The invented press quotes ("As featured in Condé Nast Traveller, Monocle…"), three
+fictional reviews, and the "4.9 · 847 reviews" aggregate — flagged as a launch blocker
+when built, then observed live on production during the v7.7 live audit — are now removed
+entirely: import, usage, and the component file itself. Zero references remain (verified
+by grep, typecheck, and build). The release-gate item is updated to record the removal and
+the standing rule: any future social-proof section must be built from real, permissioned
+content only.
+
+Also confirmed this session from the live site: **the production Neon database is now
+seeded** — all 14 menu categories with real database IDs rendering at /menu. The
+menu-empty issue is resolved on production.
+
+Gate: typecheck 0 · lint 0 · 33/33 tests · build exit 0 with env vars absent.
+
+---
+
 # v7.7 — Fixed: Sign-In Was Never Mounted (the /api/auth 404)
 
 **The most consequential missing file of the project**, exposed by the user's screenshot of

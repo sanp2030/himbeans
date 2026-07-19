@@ -28,7 +28,7 @@ never skip before a deployment.
 
 
 ## Added — Social Proof
-- [ ] **Social proof content is REAL** — the press quotes and reviews in
-  `src/components/site/SocialProof.tsx` ship as invented placeholders. Replace with
-  genuine press mentions and reviews (with permission), or remove the section.
-  Fabricated press claims on a live site are false advertising.
+- [x] **Social proof removed (v7.8)** — the invented press quotes and reviews were
+  removed entirely after briefly going live. If a social-proof section returns, it must
+  be built from real, permissioned content only; fabricated press claims on a live site
+  are false advertising.
